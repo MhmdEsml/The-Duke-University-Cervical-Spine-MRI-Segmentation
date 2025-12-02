@@ -38,6 +38,8 @@ TRAINING_CONFIG = {
     "warmup_epochs": 5,
     "min_lr": 5e-5,
     "max_lr": 1e-4,
+    "ce_weight": 0.0,
+    "dice_weight": 1.0,
     "max_norm": 1.0,
     "class_names": ["Background", "Vertebral bodies", "Intervertebral discs"],
     "num_workers": 2
@@ -60,6 +62,7 @@ MODEL_CONFIG = {
     "padding": 1,
 
 }
+
 
 
 
