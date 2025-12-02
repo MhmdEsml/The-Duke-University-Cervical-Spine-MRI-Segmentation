@@ -5,7 +5,7 @@ import time
 import math
 from tqdm import tqdm
 
-from models.unet_3d import create_optimized_3d_unet
+from models.unet_3d import create_3d_unet
 from data.dataset import initialize_data_loaders
 from training.losses import CombinedDiceCrossEntropyLoss
 from training.metrics import SegmentationMetrics
@@ -258,4 +258,5 @@ def execute_training_pipeline(training_config=None, model_config=None):
     progress_tracker.save_metrics_to_file(training_config["metrics_save_path"])
     print("INFO: Training pipeline completed.")
     
+
     return segmentation_model, progress_tracker
