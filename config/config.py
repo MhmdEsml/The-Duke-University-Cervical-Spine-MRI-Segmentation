@@ -45,7 +45,7 @@ TRAINING_CONFIG = {
 
 MODEL_CONFIG = {
     "encoder_channels": [32, 64, 128, 256, 512],
-    "decoder_channels": [512, 256, 128, 64, 32],
+    "decoder_channels": [512, 256, 128, 64],
     "bottleneck_channels": 1024,
     "activation": ActivationType.SILU,
     "normalization": NormalizationType.GROUP_NORM,
@@ -60,4 +60,5 @@ MODEL_CONFIG = {
     "padding": 1,
 
 }
+
 
