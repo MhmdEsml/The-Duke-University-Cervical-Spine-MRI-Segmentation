@@ -27,7 +27,7 @@ TRAINING_CONFIG = {
     "output_classes": 3,
     "batch_size": 4,
     "accumulation_steps": 1,
-    "max_epochs": 55,
+    "max_epochs": 50,
     "model_checkpoint_path": "3d_unet_spine_segmentation.pth",
     "metrics_save_path": "training_metrics.json",
     "validation_split": 0.2,
@@ -60,5 +60,6 @@ MODEL_CONFIG = {
     "padding": 1,
 
 }
+
 
 
