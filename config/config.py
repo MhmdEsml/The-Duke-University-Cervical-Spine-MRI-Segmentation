@@ -34,7 +34,6 @@ TRAINING_CONFIG = {
     "random_seed": 42,
     "early_stopping_patience": 15,
     "learning_rate_patience": 10,
-    "learning_rate": 1e-3,
     "weight_decay": 1e-5,
     "warmup_epochs": 5,
     "min_lr": 5e-5,
@@ -61,3 +60,4 @@ MODEL_CONFIG = {
     "padding": 1,
 
 }
+
