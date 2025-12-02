@@ -1,4 +1,4 @@
-# 3D Spine Segmentation with U-Net
+# 3D Cervical Spine MRI Segmentation with Enhanced U-Net
 
 A comprehensive 3D medical image segmentation pipeline for cervical spine MRI using an enhanced 3D U-Net architecture.
 
@@ -14,7 +14,8 @@ A comprehensive 3D medical image segmentation pipeline for cervical spine MRI us
 - **MIDRC Data Download** utility for easy data acquisition
 
 ## Download Data
-------------------------------------------------------------------------
+The dataset is hosted on the MIDRC portal:
+https://data.midrc.org/discovery/H6K0-A61V
 
 ### Required Files: `credentials.json` and `MIDRC_data_files_manifest.json`
 
@@ -31,9 +32,6 @@ Upload this file to Colab to authenticate the Gen3 client.
 
 You do **not** need to worry about `MIDRC_data_files_manifest.json`;  
 it is already included in the repository.
-
-link to source data: https://data.midrc.org/discovery/H6K0-A61V
-
 
 ## How to use
 ```bash
