@@ -14,6 +14,28 @@ A comprehensive 3D medical image segmentation pipeline for cervical spine CT sca
 - **Early Stopping** and model checkpointing
 - **MIDRC Data Download** utility for easy data acquisition
 
+# Download Data
+------------------------------------------------------------------------
+
+### Required Files: `credentials.json` and `MIDRC_data_files_manifest.json`
+
+To download MIDRC data using the Gen3 client, you must obtain a
+**`credentials.json`** file from the MIDRC data portal:
+
+1. Go to https://data.midrc.org  
+2. Log in using NIH / Google / ORCID / Institutional login  
+3. Open: **Profile → API Keys**  
+4. Click **“Create API Key”**  
+5. Your personal `credentials.json` file will download automatically
+
+Upload this file to Colab to authenticate the Gen3 client.
+
+You do **not** need to worry about `MIDRC_data_files_manifest.json`;  
+it is already included in the repository.
+
+link to source data: https://data.midrc.org/discovery/H6K0-A61V
+
+
 ## Installation
 
 1. Clone the repository:
