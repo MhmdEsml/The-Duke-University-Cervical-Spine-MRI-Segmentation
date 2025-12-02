@@ -39,5 +39,18 @@ link to source data: https://data.midrc.org/discovery/H6K0-A61V
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/CSpineSegmentation.git
-cd CSpineSegmentation
+# Clone the repository
+git clone https://github.com/MhmdEsml/The-Duke-University-Cervical-Spine-MRI-Segmentation
+cd The-Duke-University-Cervical-Spine-MRI-Segmentation
+
+# Install requirements
+pip install -r requirements.txt
+
+# Download data
+python main.py --download --credentials /kaggle/input/cspineseg-dataset-download/credentials.json --manifest /kaggle/input/cspineseg-dataset-download/MIDRC_data_files_manifest.json
+
+# Train the model
+python main.py --train
+
+# Visualize results
+python main.py --visualize --model-path best_model.pth --num-samples 5
