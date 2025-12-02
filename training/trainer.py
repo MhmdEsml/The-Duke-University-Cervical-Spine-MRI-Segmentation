@@ -55,8 +55,8 @@ def execute_training_pipeline(training_config, model_config=None):
     
     loss_function = CombinedDiceCrossEntropyLoss(
         num_classes=training_config["output_classes"],
-        dice_weight=0.6,
-        ce_weight=0.4
+        dice_weight=training_config["dice_weight"],
+        ce_weight=training_config["ce_weight"]
     )
     
     optimizer = torch.optim.AdamW(
@@ -260,4 +260,5 @@ def execute_training_pipeline(training_config, model_config=None):
     print("INFO: Training pipeline completed.")
     
     return segmentation_model, progress_tracker
+
 
