@@ -63,7 +63,7 @@ def execute_training_pipeline(training_config=None, model_config=None):
     
     optimizer = torch.optim.AdamW(
         segmentation_model.parameters(),
-        lr=training_config["learning_rate"],
+        lr=training_config["max_lr"],
         weight_decay=training_config["weight_decay"]
     )
 
@@ -260,3 +260,4 @@ def execute_training_pipeline(training_config=None, model_config=None):
     
 
     return segmentation_model, progress_tracker
+
