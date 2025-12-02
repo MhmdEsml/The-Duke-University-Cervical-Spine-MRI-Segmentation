@@ -173,7 +173,7 @@ class ThreeDUNet(nn.Module):
         else:
             return main_output
 
-def create_optimized_3d_unet(input_channels: int, output_classes: int, config: dict = None):
+def create_3d_unet(input_channels: int, output_classes: int, config: dict = None):
     if config is None:
         from config.config import MODEL_CONFIG
         config = MODEL_CONFIG
@@ -194,4 +194,5 @@ def create_optimized_3d_unet(input_channels: int, output_classes: int, config: d
         use_deep_supervision=config.get("use_deep_supervision", False),
         kernel_size=config.get("kernel_size", 3),
         padding=config.get("padding", 1)
+
     )
