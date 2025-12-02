@@ -21,7 +21,7 @@ class SpineSegmentationDataset(Dataset):
         record = self.file_records[index]
         image_path = record["image"]
         segmentation_path = record["segmentation"]
-
+        
         image_volume = nib.load(image_path).get_fdata().astype(np.float32)
         segmentation_volume = nib.load(segmentation_path).get_fdata().astype(np.int64)
 
@@ -32,7 +32,7 @@ class SpineSegmentationDataset(Dataset):
             processed_image, processed_segmentation = self._apply_augmentations(
                 processed_image, processed_segmentation
             )
-            
+
         processed_image = np.expand_dims(processed_image, axis=0)
 
         image_tensor = torch.from_numpy(processed_image.copy()).float()
@@ -50,7 +50,8 @@ class SpineSegmentationDataset(Dataset):
             image_volume = (image_volume - p_low) / (p_high - p_low + 1e-8)
         else:
             image_volume = np.zeros_like(image_volume)
-            
+
+        # Resize
         resize_factors = [
             self.target_shape[0] / image_volume.shape[0],
             self.target_shape[1] / image_volume.shape[1],
@@ -72,13 +73,15 @@ class SpineSegmentationDataset(Dataset):
         return segmentation_volume.astype(np.int64)
 
     def _apply_augmentations(self, image_volume, segmentation_volume):
+        # Random rotation
         if np.random.random() > 0.5:
-            angle = np.random.uniform(-15, 15) 
+            angle = np.random.uniform(-15, 15)
             image_volume = rotate(image_volume, angle, axes=(0, 1), reshape=False, 
                                 order=3, mode='constant', cval=0.0)
             segmentation_volume = rotate(segmentation_volume, angle, axes=(0, 1), reshape=False, 
                                        order=0, mode='constant', cval=0)
 
+        # Flips
         if np.random.random() > 0.5:
             image_volume = np.flip(image_volume, axis=0)
             segmentation_volume = np.flip(segmentation_volume, axis=0)
@@ -86,10 +89,12 @@ class SpineSegmentationDataset(Dataset):
             image_volume = np.flip(image_volume, axis=1)
             segmentation_volume = np.flip(segmentation_volume, axis=1)
 
+        # Brightness
         if np.random.random() > 0.3:
             brightness = np.random.uniform(0.7, 1.3)
             image_volume = image_volume * brightness
 
+        # Gaussian noise
         if np.random.random() > 0.3:
             noise_std = np.random.uniform(0.0, 0.05)
             image_volume = image_volume + np.random.normal(0, noise_std, image_volume.shape)
@@ -178,4 +183,5 @@ def initialize_data_loaders(config):
         pin_memory=True
     )
     
+
     return train_loader, val_loader
