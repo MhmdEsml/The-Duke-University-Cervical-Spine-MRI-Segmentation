@@ -8,6 +8,9 @@ from models.attention_mechanisms import AttentionFactory
 from utils.factories import NormalizationFactory
 
 class ThreeDUNet(nn.Module):
+    """
+    3D U-Net Medical Image Segmentation
+    """
     def __init__(self, 
                  input_channels: int = 1,
                  output_classes: int = 3,
@@ -49,6 +52,9 @@ class ThreeDUNet(nn.Module):
         print(f"Residual: {use_residual}")
         print(f"Pooling: ANISOTROPIC (preserves depth at deeper levels)")
         
+        # ============================================================
+        # ENCODER PATHWAY
+        # ============================================================
         self.encoder_blocks = nn.ModuleList()
         self.pooling_layers = nn.ModuleList()
         
@@ -70,12 +76,14 @@ class ThreeDUNet(nn.Module):
                     kernel_size, padding
                 )
             )
-            
             pool_kernel = (2, 2, 2) if i < 3 else (2, 2, 1)
             self.pooling_layers.append(nn.MaxPool3d(pool_kernel))
             
             print(f"  Encoder Level {i}: Pooling with kernel {pool_kernel}")
         
+        # ============================================================
+        # BOTTLENECK
+        # ============================================================
         self.bottleneck = ConvBlock3D(
             encoder_channels[-1], bottleneck_channels,
             activation_type, normalization_type, attention_type,
@@ -87,12 +95,15 @@ class ThreeDUNet(nn.Module):
         if use_attention_bridge:
             self.attention_bridge = AttentionFactory.create_attention(attention_type, bottleneck_channels)
         
+        # ============================================================
+        # DECODER PATHWAY
+        # ============================================================
         self.upsample_layers = nn.ModuleList()
         self.decoder_blocks = nn.ModuleList()
         
         for i in range(self.depth):
             in_channels = bottleneck_channels if i == 0 else decoder_channels[i-1]
-            
+
             upsample_kernel = (2, 2, 1) if i < (self.depth - 2) else (2, 2, 2)
             upsample_stride = (2, 2, 1) if i < (self.depth - 2) else (2, 2, 2)
             
@@ -102,7 +113,7 @@ class ThreeDUNet(nn.Module):
             )
             
             print(f"INFO: Decoder Level {i}: Upsampling with kernel {upsample_kernel}")
-            
+ 
             decoder_in_channels = decoder_channels[i] + encoder_channels[-(i+1)]
             self.decoder_blocks.append(
                 ConvBlock3D(
@@ -113,8 +124,12 @@ class ThreeDUNet(nn.Module):
                 )
             )
         
+        # ============================================================
+        # OUTPUT LAYERS
+        # ============================================================
         self.output_convolution = nn.Conv3d(decoder_channels[-1], output_classes, kernel_size=1)
         
+        # Deep Supervision
         if use_deep_supervision:
             self.deep_supervision_heads = nn.ModuleList()
             for i in range(1, self.depth):
@@ -137,17 +152,20 @@ class ThreeDUNet(nn.Module):
     def forward(self, x):
         encoder_outputs = []
         
+        # Encoder
         for i in range(self.depth):
             x = self.encoder_blocks[i](x)
             encoder_outputs.append(x)
             if i < self.depth - 1:
                 x = self.pooling_layers[i](x)
         
+        # Bottleneck
         x = self.bottleneck(x)
         
         if self.use_attention_bridge:
             x = self.attention_bridge(x)
         
+        # Decoder
         deep_supervision_outputs = []
         for i in range(self.depth):
             x = self.upsample_layers[i](x)
@@ -175,7 +193,6 @@ class ThreeDUNet(nn.Module):
 
 def create_3d_unet(input_channels: int, output_classes: int, config: dict = None):
     if config is None:
-        from config.config import MODEL_CONFIG
         config = MODEL_CONFIG
     
     return ThreeDUNet(
@@ -194,5 +211,4 @@ def create_3d_unet(input_channels: int, output_classes: int, config: dict = None
         use_deep_supervision=config.get("use_deep_supervision", False),
         kernel_size=config.get("kernel_size", 3),
         padding=config.get("padding", 1)
-
     )
