@@ -1,6 +1,6 @@
 # 3D Spine Segmentation with U-Net
 
-A comprehensive 3D medical image segmentation pipeline for cervical spine CT scans using an enhanced 3D U-Net architecture.
+A comprehensive 3D medical image segmentation pipeline for cervical spine MRI using an enhanced 3D U-Net architecture.
 
 ## Features
 
