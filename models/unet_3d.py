@@ -285,6 +285,22 @@ class ThreeDUNet(nn.Module):
                 )
 
         self._initialize_weights()
+    def _initialize_weights(self):
+        """Initialize weights for all layers"""
+        for module in self.modules():
+            if isinstance(module, nn.Conv3d):
+                nn.init.kaiming_normal_(module.weight, mode='fan_out', nonlinearity='relu')
+                if module.bias is not None:
+                    nn.init.constant_(module.bias, 0)
+            elif isinstance(module, (nn.BatchNorm3d, nn.GroupNorm, nn.InstanceNorm3d)):
+                if module.weight is not None:
+                    nn.init.constant_(module.weight, 1)
+                if module.bias is not None:
+                    nn.init.constant_(module.bias, 0)
+            elif isinstance(module, nn.Linear):
+                nn.init.normal_(module.weight, 0, 0.01)
+                if module.bias is not None:
+                    nn.init.constant_(module.bias, 0)
 
     def forward(self, x):
         encoder_outputs = []
@@ -346,4 +362,5 @@ def create_3d_unet(input_channels: int, output_classes: int, config: dict = None
         kernel_size=config.get("kernel_size", 3),
         padding=config.get("padding", 1)
     )
+
 
