@@ -35,9 +35,7 @@ it is already included in the repository.
 link to source data: https://data.midrc.org/discovery/H6K0-A61V
 
 
-## Installation
-
-1. Clone the repository:
+## How to use
 ```bash
 # Clone the repository
 git clone https://github.com/MhmdEsml/The-Duke-University-Cervical-Spine-MRI-Segmentation
