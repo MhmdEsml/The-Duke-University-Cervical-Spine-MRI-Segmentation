@@ -3,13 +3,12 @@ import shutil
 import argparse
 import subprocess
 import sys
+import platform
 
 
 def run(cmd):
     print(f"> {cmd}")
-    result = subprocess.run(cmd, shell=True)
-    if result.returncode != 0:
-        sys.exit(f"Command failed: {cmd}")
+    subprocess.run(cmd, shell=True, check=True)
 
 
 def download_midrc_data(
@@ -26,12 +25,16 @@ def download_midrc_data(
 
     os.makedirs(output_dir, exist_ok=True)
 
-    shutil.copy(credentials_path, "credentials.json")
-    if manifest_path:
+    if not os.path.exists("credentials.json"):
+        shutil.copy(credentials_path, "credentials.json")
+
+    if manifest_path and not os.path.exists("manifest.json"):
         shutil.copy(manifest_path, "manifest.json")
 
-    if not os.path.exists("gen3-client"):
-        print("Downloading gen3-client")
+    if platform.system() != "Linux":
+        sys.exit("gen3-client auto-download only supported on Linux")
+
+    if not (os.path.isfile("gen3-client") and os.access("gen3-client", os.X_OK)):
         run(
             "curl -s https://api.github.com/repos/uc-cdis/cdis-data-client/releases/latest "
             "| grep browser_download_url.*linux "
@@ -41,7 +44,6 @@ def download_midrc_data(
         run("unzip -o dataclient_linux.zip")
         run("chmod +x gen3-client")
 
-    print("Configuring gen3-client")
     run(
         "./gen3-client configure "
         "--profile=midrc "
@@ -62,12 +64,10 @@ def download_midrc_data(
             "--skip-completed"
         )
     else:
-        print(
-            "./gen3-client download-single "
-            "--profile=midrc "
-            "--guid=<GUID> "
-            f"--download-path={output_dir} "
-            "--no-prompt"
+        sys.exit(
+            "No manifest provided. Use download-single manually:\n"
+            "./gen3-client download-single --profile=midrc --guid=<GUID> "
+            f"--download-path={output_dir} --no-prompt"
         )
 
     img_dir = os.path.join(output_dir, "images")
@@ -76,16 +76,30 @@ def download_midrc_data(
     os.makedirs(img_dir, exist_ok=True)
     os.makedirs(mask_dir, exist_ok=True)
 
-    for fname in os.listdir(output_dir):
-        if not fname.endswith(".nii.gz"):
-            continue
+    for root, _, files in os.walk(output_dir):
+        for fname in files:
+            if not fname.endswith(".nii.gz"):
+                continue
 
-        src = os.path.join(output_dir, fname)
-        dst = mask_dir if "_SEG" in fname else img_dir
-        shutil.move(src, os.path.join(dst, fname))
+            src = os.path.join(root, fname)
+
+            if os.path.commonpath([src, img_dir]) == img_dir or \
+               os.path.commonpath([src, mask_dir]) == mask_dir:
+                continue
+
+            dst_dir = mask_dir if "_SEG" in fname else img_dir
+            dst = os.path.join(dst_dir, fname)
+
+            if os.path.exists(dst):
+                sys.exit(f"File already exists: {dst}")
+
+            shutil.move(src, dst)
 
     n_images = len([f for f in os.listdir(img_dir) if f.endswith(".nii.gz")])
     n_masks = len([f for f in os.listdir(mask_dir) if f.endswith(".nii.gz")])
+
+    if n_images == 0:
+        sys.exit("No images downloaded — check manifest or credentials")
 
     print(f"Images: {n_images}")
     print(f"Masks: {n_masks}")
