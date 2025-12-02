@@ -40,7 +40,7 @@ TRAINING_CONFIG = {
     "min_lr": 5e-5,
     "max_lr": 1e-4,
     "max_norm": 1.0,
-    "class_names": ["Background", "Vertebra", "Spinal_Cord"],
+    "class_names": ["Background", "Vertebral bodies", "Intervertebral discs"],
     "num_workers": 2
 }
 
@@ -59,4 +59,5 @@ MODEL_CONFIG = {
     "deep_supervision_weight": 0.3,
     "kernel_size": 3,
     "padding": 1,
+
 }
