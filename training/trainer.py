@@ -13,23 +13,21 @@ from training.progress_tracker import TrainingProgressTracker
 from config.config import TRAINING_CONFIG, MODEL_CONFIG
 
 def get_cosine_schedule_with_warmup(optimizer, num_warmup_steps, num_training_steps, min_lr, max_lr):
-    for param_group in optimizer.param_groups:
-        param_group['lr'] = 1.0
-    
-    def lr_lambda(current_step):
-        if current_step < num_warmup_steps:
-            warmup_progress = float(current_step) / float(max(1, num_warmup_steps))
-            return min_lr + (max_lr - min_lr) * warmup_progress
-        else:
-            progress = float(current_step - num_warmup_steps) / float(max(1, num_training_steps - num_warmup_steps))
-            cosine_decay = 0.5 * (1.0 + math.cos(math.pi * progress))
-            return min_lr + (max_lr - min_lr) * cosine_decay
-    
-    return LambdaLR(optimizer, lr_lambda)
+        for param_group in optimizer.param_groups:
+            param_group['lr'] = 1.0
+        
+        def lr_lambda(current_step):
+            if current_step < num_warmup_steps:
+                warmup_progress = float(current_step) / float(max(1, num_warmup_steps))
+                return min_lr + (max_lr - min_lr) * warmup_progress
+            else:
+                progress = float(current_step - num_warmup_steps) / float(max(1, num_training_steps - num_warmup_steps))
+                cosine_decay = 0.5 * (1.0 + math.cos(math.pi * progress))
+                return min_lr + (max_lr - min_lr) * cosine_decay
+        
+        return torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
 
-def execute_training_pipeline(training_config=None, model_config=None):
-    if training_config is None:
-        training_config = TRAINING_CONFIG
+def execute_training_pipeline(training_config, model_config=None):
     if model_config is None:
         model_config = MODEL_CONFIG
         
@@ -63,21 +61,23 @@ def execute_training_pipeline(training_config=None, model_config=None):
     
     optimizer = torch.optim.AdamW(
         segmentation_model.parameters(),
-        lr=training_config["max_lr"],
+        lr=training_config["learning_rate"],
         weight_decay=training_config["weight_decay"]
     )
 
-    total_training_steps = len(train_loader) * training_config["max_epochs"]
-    warmup_steps = len(train_loader) * training_config["warmup_epochs"]
+
+    total_training_steps = len(train_loader) * TRAINING_CONFIG["max_epochs"]
+    warmup_steps = len(train_loader) * TRAINING_CONFIG["warmup_epochs"]
     
     scheduler = get_cosine_schedule_with_warmup(
         optimizer, 
         num_warmup_steps=warmup_steps,
         num_training_steps=total_training_steps,
-        min_lr=training_config["min_lr"],
-        max_lr=training_config["max_lr"]
+        min_lr=TRAINING_CONFIG["min_lr"],
+        max_lr=TRAINING_CONFIG["max_lr"]
     )
 
+    
     scaler = torch.cuda.amp.GradScaler()
     progress_tracker = TrainingProgressTracker(class_names)
     
@@ -108,11 +108,11 @@ def execute_training_pipeline(training_config=None, model_config=None):
             with torch.cuda.amp.autocast():
                 outputs = segmentation_model(batch_images)
                 
-                if model_config["use_deep_supervision"]:
+                if MODEL_CONFIG["use_deep_supervision"]:
                     main_output, deep_outputs = outputs
                     main_loss = loss_function(main_output, batch_masks)
                     
-                    target_size = batch_masks.shape[1:]
+                    target_size = batch_masks.shape[1:]  # (H, W, D)
                     deep_loss = 0
                     for deep_out in deep_outputs:
                         deep_out_upsampled = F.interpolate(
@@ -123,7 +123,7 @@ def execute_training_pipeline(training_config=None, model_config=None):
                         )
                         deep_loss += loss_function(deep_out_upsampled, batch_masks)
                     
-                    loss = main_loss + model_config["deep_supervision_weight"] * deep_loss
+                    loss = main_loss + MODEL_CONFIG["deep_supervision_weight"] * deep_loss
                 else:
                     loss = loss_function(outputs, batch_masks)
                 
@@ -146,7 +146,7 @@ def execute_training_pipeline(training_config=None, model_config=None):
             epoch_train_loss += loss.item() * accumulation_steps
             
             with torch.no_grad():
-                if model_config["use_deep_supervision"]:
+                if MODEL_CONFIG["use_deep_supervision"]:
                     pred_classes = torch.argmax(main_output, dim=1)
                 else:
                     pred_classes = torch.argmax(outputs, dim=1)
@@ -180,7 +180,7 @@ def execute_training_pipeline(training_config=None, model_config=None):
                 with torch.cuda.amp.autocast():
                     outputs = segmentation_model(batch_images)
                     
-                    if model_config["use_deep_supervision"]:
+                    if MODEL_CONFIG["use_deep_supervision"]:
                         main_output, deep_outputs = outputs
                         loss = loss_function(main_output, batch_masks)
                         
@@ -195,13 +195,13 @@ def execute_training_pipeline(training_config=None, model_config=None):
                             )
                             deep_loss += loss_function(deep_out_upsampled, batch_masks)
                         
-                        loss = loss + model_config["deep_supervision_weight"] * deep_loss
+                        loss = loss + MODEL_CONFIG["deep_supervision_weight"] * deep_loss
                     else:
                         loss = loss_function(outputs, batch_masks)
                 
                 epoch_val_loss += loss.item()
                 
-                if model_config["use_deep_supervision"]:
+                if MODEL_CONFIG["use_deep_supervision"]:
                     pred_classes = torch.argmax(main_output, dim=1)
                 else:
                     pred_classes = torch.argmax(outputs, dim=1)
@@ -221,6 +221,7 @@ def execute_training_pipeline(training_config=None, model_config=None):
             epoch_duration, current_lr
         )
 
+        
         progress_tracker.display_epoch_progress(
             epoch, training_config["max_epochs"], epoch_train_loss, 
             epoch_val_loss, val_epoch_metrics
@@ -258,7 +259,4 @@ def execute_training_pipeline(training_config=None, model_config=None):
     progress_tracker.save_metrics_to_file(training_config["metrics_save_path"])
     print("INFO: Training pipeline completed.")
     
-
     return segmentation_model, progress_tracker
-
-
