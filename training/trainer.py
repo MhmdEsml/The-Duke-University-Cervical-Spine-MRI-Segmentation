@@ -41,7 +41,7 @@ def execute_training_pipeline(training_config=None, model_config=None):
     
     class_names = training_config.get("class_names", ["Background", "Class_1", "Class_2"])
     
-    segmentation_model = create_optimized_3d_unet(
+    segmentation_model = create_3d_unet(
         input_channels=training_config["input_channels"],
         output_classes=training_config["output_classes"],
         config=model_config
@@ -260,4 +260,5 @@ def execute_training_pipeline(training_config=None, model_config=None):
     
 
     return segmentation_model, progress_tracker
+
 
