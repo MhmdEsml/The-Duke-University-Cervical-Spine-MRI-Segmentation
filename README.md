@@ -14,7 +14,7 @@ A comprehensive 3D medical image segmentation pipeline for cervical spine CT sca
 - **Early Stopping** and model checkpointing
 - **MIDRC Data Download** utility for easy data acquisition
 
-# Download Data
+## Download Data
 ------------------------------------------------------------------------
 
 ### Required Files: `credentials.json` and `MIDRC_data_files_manifest.json`
