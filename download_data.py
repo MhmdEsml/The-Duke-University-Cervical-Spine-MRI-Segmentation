@@ -18,7 +18,6 @@ def download_midrc_data(
     output_dir: str,
     num_parallel: int,
 ):
-    """Download MIDRC data using gen3-client"""
     if not os.path.isfile(credentials_path):
         sys.exit(f"credentials.json not found: {credentials_path}")
 
@@ -32,18 +31,17 @@ def download_midrc_data(
         shutil.copy(manifest_path, "manifest.json")
 
     if not os.path.exists("gen3-client"):
-        print("Downloading gen3-client...")
+        print("Downloading gen3-client")
         run(
             "curl -s https://api.github.com/repos/uc-cdis/cdis-data-client/releases/latest "
             "| grep browser_download_url.*linux "
             "| cut -d '\"' -f 4 "
             "| wget -qi -"
         )
-
         run("unzip -o dataclient_linux.zip")
         run("chmod +x gen3-client")
 
-    print("Configuring gen3-client...")
+    print("Configuring gen3-client")
     run(
         "./gen3-client configure "
         "--profile=midrc "
@@ -54,7 +52,6 @@ def download_midrc_data(
     run("./gen3-client auth --profile=midrc")
 
     if manifest_path:
-        print("Downloading data using manifest...")
         run(
             "./gen3-client download-multiple "
             "--profile=midrc "
@@ -65,9 +62,7 @@ def download_midrc_data(
             "--skip-completed"
         )
     else:
-        print("No manifest provided.")
         print(
-            "Use:\n"
             "./gen3-client download-single "
             "--profile=midrc "
             "--guid=<GUID> "
@@ -75,33 +70,36 @@ def download_midrc_data(
             "--no-prompt"
         )
 
-    print(f"Files saved in: {output_dir}")
+    img_dir = os.path.join(output_dir, "images")
+    mask_dir = os.path.join(output_dir, "masks")
+
+    os.makedirs(img_dir, exist_ok=True)
+    os.makedirs(mask_dir, exist_ok=True)
+
+    for fname in os.listdir(output_dir):
+        if not fname.endswith(".nii.gz"):
+            continue
+
+        src = os.path.join(output_dir, fname)
+        dst = mask_dir if "_SEG" in fname else img_dir
+        shutil.move(src, os.path.join(dst, fname))
+
+    n_images = len([f for f in os.listdir(img_dir) if f.endswith(".nii.gz")])
+    n_masks = len([f for f in os.listdir(mask_dir) if f.endswith(".nii.gz")])
+
+    print(f"Images: {n_images}")
+    print(f"Masks: {n_masks}")
+
+    return output_dir
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Download MIDRC data using gen3-client")
+    parser = argparse.ArgumentParser()
 
-    parser.add_argument(
-        "--credentials",
-        required=True,
-        help="Path to credentials.json",
-    )
-    parser.add_argument(
-        "--manifest",
-        default=None,
-        help="Path to manifest.json (optional)",
-    )
-    parser.add_argument(
-        "--output-dir",
-        default="CSpineSeg",
-        help="Directory to save downloaded data",
-    )
-    parser.add_argument(
-        "--num-parallel",
-        type=int,
-        default=8,
-        help="Number of parallel downloads",
-    )
+    parser.add_argument("--credentials", required=True)
+    parser.add_argument("--manifest", default=None)
+    parser.add_argument("--output-dir", default="CSpineSeg")
+    parser.add_argument("--num-parallel", type=int, default=8)
 
     args = parser.parse_args()
 
