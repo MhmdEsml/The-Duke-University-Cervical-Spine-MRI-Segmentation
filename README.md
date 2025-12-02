@@ -28,8 +28,6 @@ To download MIDRC data using the Gen3 client, you must obtain a
 4. Click **“Create API Key”**  
 5. Your personal `credentials.json` file will download automatically
 
-Upload this file to Colab to authenticate the Gen3 client.
-
 You do **not** need to worry about `MIDRC_data_files_manifest.json`;  
 it is already included in the repository.
 
