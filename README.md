@@ -11,7 +11,6 @@ A comprehensive 3D medical image segmentation pipeline for cervical spine CT sca
 - **Mixed Precision Training** for faster computation
 - **Gradient Accumulation** for larger effective batch sizes
 - **Cosine Annealing with Warmup** for optimized learning rate scheduling
-- **Early Stopping** and model checkpointing
 - **MIDRC Data Download** utility for easy data acquisition
 
 ## Download Data
