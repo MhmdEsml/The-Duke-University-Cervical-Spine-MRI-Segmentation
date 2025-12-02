@@ -13,7 +13,7 @@ def run(cmd):
 
 def download_midrc_data(
     credentials_path: str,
-    manifest_path: str | None,
+    manifest_path: str,
     output_dir: str,
     num_parallel: int,
 ):
@@ -63,12 +63,6 @@ def download_midrc_data(
             "--no-prompt "
             "--skip-completed"
         )
-    else:
-        sys.exit(
-            "No manifest provided. Use download-single manually:\n"
-            "./gen3-client download-single --profile=midrc --guid=<GUID> "
-            f"--download-path={output_dir} --no-prompt"
-        )
 
     img_dir = os.path.join(output_dir, "images")
     mask_dir = os.path.join(output_dir, "masks")
@@ -91,15 +85,12 @@ def download_midrc_data(
             dst = os.path.join(dst_dir, fname)
 
             if os.path.exists(dst):
-                sys.exit(f"File already exists: {dst}")
+                continue
 
             shutil.move(src, dst)
 
     n_images = len([f for f in os.listdir(img_dir) if f.endswith(".nii.gz")])
     n_masks = len([f for f in os.listdir(mask_dir) if f.endswith(".nii.gz")])
-
-    if n_images == 0:
-        sys.exit("No images downloaded — check manifest or credentials")
 
     print(f"Images: {n_images}")
     print(f"Masks: {n_masks}")
@@ -111,7 +102,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--credentials", required=True)
-    parser.add_argument("--manifest", default=None)
+    parser.add_argument("--manifest", required=True)
     parser.add_argument("--output-dir", default="CSpineSeg")
     parser.add_argument("--num-parallel", type=int, default=8)
 
