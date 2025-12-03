@@ -97,7 +97,7 @@ TRAINING_CONFIG = {
     "best_model_path": "checkpoints/3d_unet_spine_segmentation_best.pth",
     "last_checkpoint_path": "checkpoints/3d_unet_spine_segmentation_last.pth",
     "resume_from_checkpoint": False,
-    "checkpoint_path": "checkpoints/3d_unet_spine_segmentation_last.pth",
+    "checkpoint_path": "checkpoints/3d_unet_spine_segmentation_last.pth", # for resume training
     "metrics_save_path": "training_metrics.json",
     "validation_split": 0.2,
     "random_seed": 42,
@@ -130,9 +130,3 @@ MODEL_CONFIG = {
     "kernel_size": 3,
     "padding": 1,
 }
-
-
-
-
-
-
