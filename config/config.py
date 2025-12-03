@@ -93,7 +93,7 @@ TRAINING_CONFIG = {
     "output_classes": 3,
     "batch_size": 4,
     "accumulation_steps": 1,
-    "max_epochs": 50,
+    "max_epochs": 100,
     "best_model_path": "checkpoints/3d_unet_spine_segmentation_best.pth",
     "last_checkpoint_path": "checkpoints/3d_unet_spine_segmentation_last.pth",
     "resume_from_checkpoint": False,
@@ -130,3 +130,4 @@ MODEL_CONFIG = {
     "kernel_size": 3,
     "padding": 1,
 }
+
