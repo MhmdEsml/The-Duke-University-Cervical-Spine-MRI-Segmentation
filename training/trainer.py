@@ -27,6 +27,240 @@ def get_cosine_schedule_with_warmup(optimizer, num_warmup_steps, num_training_st
         
         return torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
 
+# def execute_training_pipeline(training_config, model_config=None):
+#     if model_config is None:
+#         model_config = MODEL_CONFIG
+        
+#     print("Initializing 3D U-Net Training Pipeline...")
+#     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+#     print(f"INFO: Computational Device: {device}")
+    
+#     train_loader, val_loader = initialize_data_loaders(training_config)
+    
+#     class_names = training_config.get("class_names", ["Background", "Class_1", "Class_2"])
+    
+#     segmentation_model = create_3d_unet(
+#         input_channels=training_config["input_channels"],
+#         output_classes=training_config["output_classes"],
+#         config=model_config
+#     )
+    
+#     print(f"INFO: Model with {sum(p.numel() for p in segmentation_model.parameters()):,} parameters")
+    
+#     if torch.cuda.device_count() > 1:
+#         print(f"INFO: Utilizing {torch.cuda.device_count()} GPUs for parallel processing")
+#         segmentation_model = nn.DataParallel(segmentation_model)
+    
+#     segmentation_model.to(device)
+    
+#     loss_function = CombinedDiceCrossEntropyLoss(
+#         num_classes=training_config["output_classes"],
+#         dice_weight=training_config["dice_weight"],
+#         ce_weight=training_config["ce_weight"]
+#     )
+    
+#     optimizer = torch.optim.AdamW(
+#         segmentation_model.parameters(),
+#         lr=training_config["max_lr"],
+#         weight_decay=training_config["weight_decay"]
+#     )
+
+
+#     total_training_steps = len(train_loader) * TRAINING_CONFIG["max_epochs"]
+#     warmup_steps = len(train_loader) * TRAINING_CONFIG["warmup_epochs"]
+    
+#     scheduler = get_cosine_schedule_with_warmup(
+#         optimizer, 
+#         num_warmup_steps=warmup_steps,
+#         num_training_steps=total_training_steps,
+#         min_lr=TRAINING_CONFIG["min_lr"],
+#         max_lr=TRAINING_CONFIG["max_lr"]
+#     )
+
+    
+#     scaler = torch.cuda.amp.GradScaler()
+#     progress_tracker = TrainingProgressTracker(class_names)
+    
+#     best_val_loss = float('inf')
+#     early_stopping_counter = 0
+    
+#     print("\nStarting Training Process...")
+#     for epoch in range(training_config["max_epochs"]):
+#         epoch_start_time = time.time()
+        
+#         segmentation_model.train()
+#         epoch_train_loss = 0.0
+#         train_metrics = SegmentationMetrics(training_config["output_classes"], class_names)
+        
+#         train_progress_bar = tqdm(
+#             train_loader, 
+#             desc=f"Epoch {epoch+1}/{training_config['max_epochs']} [Training]",
+#             leave=False
+#         )
+
+#         accumulation_steps = training_config.get("accumulation_steps", 1)
+#         optimizer.zero_grad()
+        
+#         for batch_idx, (batch_images, batch_masks) in enumerate(train_progress_bar):
+#             batch_images = batch_images.to(device, non_blocking=True)
+#             batch_masks = batch_masks.to(device, non_blocking=True)
+            
+#             with torch.cuda.amp.autocast():
+#                 outputs = segmentation_model(batch_images)
+                
+#                 if MODEL_CONFIG["use_deep_supervision"]:
+#                     main_output, deep_outputs = outputs
+#                     main_loss = loss_function(main_output, batch_masks)
+                    
+#                     target_size = batch_masks.shape[1:]  # (H, W, D)
+#                     deep_loss = 0
+#                     for deep_out in deep_outputs:
+#                         deep_out_upsampled = F.interpolate(
+#                             deep_out, 
+#                             size=target_size, 
+#                             mode='trilinear', 
+#                             align_corners=False
+#                         )
+#                         deep_loss += loss_function(deep_out_upsampled, batch_masks)
+                    
+#                     loss = main_loss + MODEL_CONFIG["deep_supervision_weight"] * deep_loss
+#                 else:
+#                     loss = loss_function(outputs, batch_masks)
+                
+#                 loss = loss / accumulation_steps
+            
+#             scaler.scale(loss).backward()
+
+#             if (batch_idx + 1) % accumulation_steps == 0 or (batch_idx + 1) == len(train_loader):
+#                 scaler.unscale_(optimizer)
+#                 torch.nn.utils.clip_grad_norm_(
+#                     segmentation_model.parameters(), 
+#                     max_norm=training_config["max_norm"]
+#                 )
+                
+#                 scaler.step(optimizer)
+#                 scaler.update()
+#                 optimizer.zero_grad() 
+#                 scheduler.step() 
+            
+#             epoch_train_loss += loss.item() * accumulation_steps
+            
+#             with torch.no_grad():
+#                 if MODEL_CONFIG["use_deep_supervision"]:
+#                     pred_classes = torch.argmax(main_output, dim=1)
+#                 else:
+#                     pred_classes = torch.argmax(outputs, dim=1)
+#                 train_metrics.update_metrics(pred_classes, batch_masks)
+
+#             current_accum = (batch_idx % accumulation_steps) + 1
+#             train_progress_bar.set_postfix({
+#                 "Batch Loss": f"{loss.item() * accumulation_steps:.4f}",
+#                 "LR": f"{scheduler.get_last_lr()[0]:.2e}",
+#                 "Accum": f"{current_accum}/{accumulation_steps}"
+#             })
+        
+#         epoch_train_loss /= len(train_loader)
+#         train_epoch_metrics = train_metrics.get_comprehensive_metrics()
+        
+#         segmentation_model.eval()
+#         epoch_val_loss = 0.0
+#         val_metrics = SegmentationMetrics(training_config["output_classes"], class_names)
+        
+#         val_progress_bar = tqdm(
+#             val_loader, 
+#             desc=f"Epoch {epoch+1}/{training_config['max_epochs']} [Validation]",
+#             leave=False
+#         )
+        
+#         with torch.no_grad():
+#             for batch_images, batch_masks in val_progress_bar:
+#                 batch_images = batch_images.to(device, non_blocking=True)
+#                 batch_masks = batch_masks.to(device, non_blocking=True)
+                
+#                 with torch.cuda.amp.autocast():
+#                     outputs = segmentation_model(batch_images)
+                    
+#                     if MODEL_CONFIG["use_deep_supervision"]:
+#                         main_output, deep_outputs = outputs
+#                         loss = loss_function(main_output, batch_masks)
+                        
+#                         target_size = batch_masks.shape[1:]
+#                         deep_loss = 0
+#                         for deep_out in deep_outputs:
+#                             deep_out_upsampled = F.interpolate(
+#                                 deep_out, 
+#                                 size=target_size, 
+#                                 mode='trilinear', 
+#                                 align_corners=False
+#                             )
+#                             deep_loss += loss_function(deep_out_upsampled, batch_masks)
+                        
+#                         loss = loss + MODEL_CONFIG["deep_supervision_weight"] * deep_loss
+#                     else:
+#                         loss = loss_function(outputs, batch_masks)
+                
+#                 epoch_val_loss += loss.item()
+                
+#                 if MODEL_CONFIG["use_deep_supervision"]:
+#                     pred_classes = torch.argmax(main_output, dim=1)
+#                 else:
+#                     pred_classes = torch.argmax(outputs, dim=1)
+                    
+#                 val_metrics.update_metrics(pred_classes, batch_masks)
+#                 val_progress_bar.set_postfix({"Val Loss": f"{loss.item():.4f}"})
+        
+#         epoch_val_loss /= len(val_loader)
+#         val_epoch_metrics = val_metrics.get_comprehensive_metrics()
+#         epoch_duration = time.time() - epoch_start_time
+        
+#         current_lr = scheduler.get_last_lr()[0]
+
+#         progress_tracker.update_metrics(
+#             epoch_train_loss, epoch_val_loss,
+#             train_epoch_metrics, val_epoch_metrics,
+#             epoch_duration, current_lr
+#         )
+
+        
+#         progress_tracker.display_epoch_progress(
+#             epoch, training_config["max_epochs"], epoch_train_loss, 
+#             epoch_val_loss, val_epoch_metrics
+#         )
+        
+#         if epoch_val_loss < best_val_loss:
+#             best_val_loss = epoch_val_loss
+#             early_stopping_counter = 0
+#             model_state = (
+#                 segmentation_model.module.state_dict() 
+#                 if isinstance(segmentation_model, nn.DataParallel) 
+#                 else segmentation_model.state_dict()
+#             )
+#             torch.save({
+#                 'epoch': epoch,
+#                 'model_state_dict': model_state,
+#                 'optimizer_state_dict': optimizer.state_dict(),
+#                 'scheduler_state_dict': scheduler.state_dict(),
+#                 'best_val_loss': best_val_loss,
+#                 'config': {
+#                     'training': training_config,
+#                     'model': model_config
+#                 }
+#             }, training_config["model_checkpoint_path"])
+#             print(f"INFO: New optimal model saved to {training_config['model_checkpoint_path']}")
+#         else:
+#             early_stopping_counter += 1
+#             print(f"INFO: Early stopping counter: {early_stopping_counter}/{training_config['early_stopping_patience']}")
+        
+#         if early_stopping_counter >= training_config["early_stopping_patience"]:
+#             print(f"INFO: Early stopping triggered after {epoch + 1} epochs")
+#             break
+
+#     progress_tracker.display_training_summary()
+#     progress_tracker.save_metrics_to_file(training_config["metrics_save_path"])
+#     print("INFO: Training pipeline completed.")
+    
+#     return segmentation_model, progress_tracker
+
 def execute_training_pipeline(training_config, model_config=None):
     if model_config is None:
         model_config = MODEL_CONFIG
@@ -65,7 +299,6 @@ def execute_training_pipeline(training_config, model_config=None):
         weight_decay=training_config["weight_decay"]
     )
 
-
     total_training_steps = len(train_loader) * TRAINING_CONFIG["max_epochs"]
     warmup_steps = len(train_loader) * TRAINING_CONFIG["warmup_epochs"]
     
@@ -77,15 +310,41 @@ def execute_training_pipeline(training_config, model_config=None):
         max_lr=TRAINING_CONFIG["max_lr"]
     )
 
-    
     scaler = torch.cuda.amp.GradScaler()
     progress_tracker = TrainingProgressTracker(class_names)
     
+    checkpoint_dir = os.path.dirname(training_config.get("model_checkpoint_path", "checkpoints/"))
+    os.makedirs(checkpoint_dir, exist_ok=True)
+    
+    start_epoch = 0
     best_val_loss = float('inf')
+    
+    if training_config.get("resume_from_checkpoint", False):
+        checkpoint_path = training_config.get("checkpoint_path")
+        if checkpoint_path and os.path.exists(checkpoint_path):
+            print(f"INFO: Resuming from checkpoint: {checkpoint_path}")
+            checkpoint = torch.load(checkpoint_path, map_location=device)
+            
+            if isinstance(segmentation_model, nn.DataParallel):
+                segmentation_model.module.load_state_dict(checkpoint['model_state_dict'])
+            else:
+                segmentation_model.load_state_dict(checkpoint['model_state_dict'])
+            
+            optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+            
+            start_epoch = checkpoint.get('epoch', 0) + 1
+            best_val_loss = checkpoint.get('best_val_loss', float('inf'))
+            
+            print(f"INFO: Resumed from epoch {checkpoint.get('epoch', 0)}")
+            print(f"INFO: Previous best validation loss: {best_val_loss:.4f}")
+        else:
+            print(f"WARNING: Checkpoint path {checkpoint_path} not found. Starting from scratch.")
+    
     early_stopping_counter = 0
     
     print("\nStarting Training Process...")
-    for epoch in range(training_config["max_epochs"]):
+    for epoch in range(start_epoch, training_config["max_epochs"]):
         epoch_start_time = time.time()
         
         segmentation_model.train()
@@ -112,7 +371,7 @@ def execute_training_pipeline(training_config, model_config=None):
                     main_output, deep_outputs = outputs
                     main_loss = loss_function(main_output, batch_masks)
                     
-                    target_size = batch_masks.shape[1:]  # (H, W, D)
+                    target_size = batch_masks.shape[1:]
                     deep_loss = 0
                     for deep_out in deep_outputs:
                         deep_out_upsampled = F.interpolate(
@@ -221,7 +480,6 @@ def execute_training_pipeline(training_config, model_config=None):
             epoch_duration, current_lr
         )
 
-        
         progress_tracker.display_epoch_progress(
             epoch, training_config["max_epochs"], epoch_train_loss, 
             epoch_val_loss, val_epoch_metrics
@@ -230,24 +488,52 @@ def execute_training_pipeline(training_config, model_config=None):
         if epoch_val_loss < best_val_loss:
             best_val_loss = epoch_val_loss
             early_stopping_counter = 0
+            
             model_state = (
                 segmentation_model.module.state_dict() 
                 if isinstance(segmentation_model, nn.DataParallel) 
                 else segmentation_model.state_dict()
             )
+            
             torch.save({
                 'epoch': epoch,
                 'model_state_dict': model_state,
-                'optimizer_state_dict': optimizer.state_dict(),
-                'scheduler_state_dict': scheduler.state_dict(),
                 'best_val_loss': best_val_loss,
+                'val_metrics': val_epoch_metrics,
                 'config': {
                     'training': training_config,
                     'model': model_config
                 }
-            }, training_config["model_checkpoint_path"])
-            print(f"INFO: New optimal model saved to {training_config['model_checkpoint_path']}")
-        else:
+            }, training_config.get("best_model_path", "best_model.pth"))
+            
+            print(f"INFO: Best model saved to {training_config.get('best_model_path', 'best_model.pth')}")
+        
+        model_state = (
+            segmentation_model.module.state_dict() 
+            if isinstance(segmentation_model, nn.DataParallel) 
+            else segmentation_model.state_dict()
+        )
+        
+        torch.save({
+            'epoch': epoch,
+            'model_state_dict': model_state,
+            'optimizer_state_dict': optimizer.state_dict(),
+            'scheduler_state_dict': scheduler.state_dict(),
+            'scaler_state_dict': scaler.state_dict(),
+            'best_val_loss': best_val_loss,
+            'current_val_loss': epoch_val_loss,
+            'current_train_loss': epoch_train_loss,
+            'val_metrics': val_epoch_metrics,
+            'train_metrics': train_epoch_metrics,
+            'config': {
+                'training': training_config,
+                'model': model_config
+            }
+        }, training_config.get("last_checkpoint_path", "last_checkpoint.pth"))
+        
+        print(f"INFO: Last checkpoint saved to {training_config.get('last_checkpoint_path', 'last_checkpoint.pth')}")
+        
+        if epoch_val_loss >= best_val_loss:
             early_stopping_counter += 1
             print(f"INFO: Early stopping counter: {early_stopping_counter}/{training_config['early_stopping_patience']}")
         
